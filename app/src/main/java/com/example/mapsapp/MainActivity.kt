@@ -1,31 +1,31 @@
 package com.example.mapsapp
 
+import android.content.pm.PackageManager
 import android.os.Bundle
+import android.preference.PreferenceManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.example.mapsapp.ui.theme.MapsAppTheme
 import org.osmdroid.config.Configuration
-import androidx.compose.foundation.layout.Box
-import androidx.preference.PreferenceManager
-import org.osmdroid.util.GeoPoint
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.views.MapView
-import org.osmdroid.views.overlay.Marker
-import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
+import android.Manifest
 
 class MainActivity : ComponentActivity() {
-    private lateinit var map: MapView
-    private lateinit var locationOverlay: MyLocationNewOverlay
-
     override fun onCreate(savedInstanceState: Bundle?) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.INTERNET) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.INTERNET), 0)
+        }
         super.onCreate(savedInstanceState)
-        Configuration.getInstance().load(this, PreferenceManager.getDefaultSharedPreferences(this))
         setContent {
             MapsAppTheme {
                 // A surface container using the 'background' color from the theme
@@ -33,55 +33,30 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    MapView()
+
+                    OsmdroidMapView()
                 }
             }
         }
-        // Initialize map after setting content
-        initializeMap()
-    }
-    override fun onResume() {
-        super.onResume()
-        map.onResume() // needed for compass, my location overlays, v6.0.0 and up
-    }
-
-    override fun onPause() {
-        super.onPause()
-        map.onPause() // needed for compass, my location overlays, v6.0.0 and up
-    }
-
-
-    private fun initializeMap() {
-        map = MapView(this)
-        map.setMultiTouchControls(true)
-
-        val mapController = map.controller
-        mapController.setZoom(15.0)
-        val startPoint = GeoPoint(48.8583, 2.2944) // Latitude and Longitude of the location
-        mapController.setCenter(startPoint)
-
-        locationOverlay = MyLocationNewOverlay(map)
-        locationOverlay.enableMyLocation()
-        map.overlays.add(locationOverlay)
-
-        val marker = Marker(map)
-        marker.position = startPoint
-        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-        map.overlays.add(marker)
-    }
-}
-
-@Composable
-fun MapView() {
-    Box(modifier = Modifier.fillMaxSize()) {
+        val ctx = applicationContext
+        Configuration.getInstance().load(ctx, PreferenceManager.getDefaultSharedPreferences(ctx))
+        Configuration.getInstance().userAgentValue = "MapApp"
 
     }
 }
 
-@Preview(showBackground = true)
 @Composable
-fun GreetingPreview() {
-    MapsAppTheme {
-        MapView()
-    }
+fun OsmdroidMapView() {
+    val context = LocalContext.current
+    AndroidView(
+        modifier = Modifier.fillMaxSize(),
+        factory = { context ->
+            val mapView = MapView(context)
+            mapView.setTileSource(TileSourceFactory.DEFAULT_TILE_SOURCE)
+            mapView.setBuiltInZoomControls(true)
+            mapView.setMultiTouchControls(true)
+            mapView.getMapCenter()
+            mapView
+        }
+    )
 }
